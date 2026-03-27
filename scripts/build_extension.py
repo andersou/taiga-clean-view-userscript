@@ -3,9 +3,9 @@
 Generate userscript + extension artifacts from shared source modules.
 
 Pipeline:
-1) Parse userscript metadata header from taiga-clean-view.userscript.js.
+1) Parse userscript metadata header from src/userscript.header.js.
 2) Build JS outputs by concatenating source modules from src/.
-3) Write extension/manifest.json from parsed metadata.
+3) Write generated/extension/manifest.json from parsed metadata.
 4) Package signed CRX3 (default) and optional ZIP.
 """
 
@@ -23,12 +23,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "src"
 USERSCRIPT_HEADER_SOURCE = SRC_DIR / "userscript.header.js"
-EXT_DIR = REPO_ROOT / "extension"
+EXT_DIR = REPO_ROOT / "generated" / "extension"
 CONTENT_OUT = EXT_DIR / "content.js"
 MANIFEST_OUT = EXT_DIR / "manifest.json"
 DIST_DIR = REPO_ROOT / "dist"
 USERSCRIPT_OUT = DIST_DIR / "taiga-clean-view.userscript.js"
-SIGNING_KEY = EXT_DIR / "dev-signing-key.pem"
+SIGNING_KEY = REPO_ROOT / "keys" / "dev-signing-key.pem"
 
 HEADER_RE = re.compile(
     r"(?P<header>// ==UserScript==\s*\n(?P<body>.*?)\n// ==/UserScript==)\s*\n?",

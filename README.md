@@ -26,11 +26,11 @@ Para atualizar depois de editar o ficheiro local: abra o mesmo script no dashboa
 
 ## Instalação (extensão Chrome — Manifest V3)
 
-Na pasta [`extension/`](extension/) está uma extensão com o mesmo comportamento, usando [content scripts](https://developer.chrome.com/docs/extensions/mv3/content_scripts/) e `chrome.storage.local` para o estado.
+Depois de correr o build, a pasta [`generated/extension/`](generated/extension/) contém a extensão (Manifest V3), com [content scripts](https://developer.chrome.com/docs/extensions/mv3/content_scripts/) e `chrome.storage.local` para o estado.
 
 1. Abre `chrome://extensions`.
 2. Ativa **Modo do programador**.
-3. **Carregar sem compactação** e escolhe a pasta `extension/` deste repositório.
+3. **Carregar sem compactação** e escolhe a pasta `generated/extension/` deste repositório (criada pelo build).
 4. Recarrega o taskboard do Taiga.
 
 ### Gerar `userscript`, `content.js` e `.crx` a partir de `src/`
@@ -42,7 +42,7 @@ A arquitetura usa um núcleo compartilhado em `src/`:
 - `src/storage.chrome.js` (adapter da extensão)
 - `src/entry.userscript.js` e `src/entry.extension.js` (bootstraps)
 
-O script Python concatena estes módulos, mantém o cabeçalho Tampermonkey de `taiga-clean-view.userscript.js`, gera `extension/content.js`, atualiza `extension/manifest.json` e escreve um **CRX3 assinado** (mesmo esquema que [crx3](https://github.com/ahwayakchih/crx3): RSA 4096 + SHA-256 sobre o ZIP interno).
+O script Python concatena estes módulos, lê o cabeçalho Tampermonkey de `src/userscript.header.js`, gera `generated/extension/content.js`, `generated/extension/manifest.json` e escreve um **CRX3 assinado** (mesmo esquema que [crx3](https://github.com/ahwayakchih/crx3): RSA 4096 + SHA-256 sobre o ZIP interno).
 
 Requisitos: **Python 3** e dependências (recomenda-se um venv no repositório):
 
@@ -54,16 +54,16 @@ python3 scripts/build_extension.py
 
 Opcional: **`--zip`** — gera também `dist/*.zip` (formato da **Chrome Web Store**).
 
-Opcional: **`--key /caminho/para.pem`** — chave RSA em PEM (é criada na primeira corrida no caminho por defeito `extension/dev-signing-key.pem`, ignorada pelo git).
+Opcional: **`--key /caminho/para.pem`** — chave RSA em PEM (por defeito `keys/dev-signing-key.pem`, criada na primeira corrida se não existir; ignorada pelo git).
 
 Saída:
 
 - `dist/taiga-clean-view.userscript.js` — **gerado** (usa header de `src/userscript.header.js`)
-- `extension/content.js` — **gerado** (não editar à mão)
-- `extension/manifest.json` — atualizado
+- `generated/extension/content.js` — **gerado** (não editar à mão; pasta ignorada pelo git)
+- `generated/extension/manifest.json` — **gerado**
 - `dist/taiga-clean-view-extension-<versão>.crx` — pacote binário válido (cabeçalho `Cr24`, não confundir com ZIP renomeado)
 
-**Nota:** em muitos sistemas o Chrome só instala `.crx` local com **modo de programador** ligado e [limitações por plataforma](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions); para desenvolvimento costuma ser mais simples *Carregar sem compactação* na pasta `extension/`.
+**Nota:** em muitos sistemas o Chrome só instala `.crx` local com **modo de programador** ligado e [limitações por plataforma](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions); para desenvolvimento costuma ser mais simples *Carregar sem compactação* na pasta `generated/extension/`.
 
 ### Erro «CRX header invalid»
 
@@ -88,7 +88,7 @@ location.reload();
 
 Para desligar: `localStorage.removeItem('taiga-clean-view-debug'); location.reload();`
 
-**Extensão** — o mesmo significado para a chave `taiga-clean-view-debug`, guardada em `chrome.storage.local`. Em desenvolvimento, o modo mais simples é definir temporariamente `debugEnabled = true` no arranque de `extension/content.js` ou usar *Detalhes da extensão → Armazenamento* no Chrome, quando disponível.
+**Extensão** — o mesmo significado para a chave `taiga-clean-view-debug`, guardada em `chrome.storage.local`. Em desenvolvimento, o modo mais simples é editar `src/core.js` temporariamente ou usar *Detalhes da extensão → Armazenamento* no Chrome, quando disponível.
 
 ## Ficheiros
 
@@ -103,8 +103,9 @@ Para desligar: `localStorage.removeItem('taiga-clean-view-debug'); location.relo
 | `scripts/build_extension.py` | Gera userscript, content script, manifest e `dist/*.crx` (opcional `--zip`) |
 | `scripts/crx3_pack.py` | Empacota bytes ZIP → CRX3 |
 | `scripts/requirements.txt` | `cryptography` para assinar o CRX |
-| `extension/manifest.json` | Manifest V3 da extensão Chrome (gerado/atualizado pelo script) |
-| `extension/content.js` | Content script gerado a partir de `src/` |
+| `keys/dev-signing-key.pem` | Chave local para assinar o CRX (criada pelo build; não versionar) |
+| `generated/extension/manifest.json` | Manifest V3 (gerado pelo build; não versionar) |
+| `generated/extension/content.js` | Content script (gerado pelo build; não versionar) |
 | `dist/taiga-clean-view.userscript.js` | Userscript final gerado para Tampermonkey |
 | `dist/*.crx` | Extensão assinada CRX3 (após correr o build com `cryptography`) |
 
