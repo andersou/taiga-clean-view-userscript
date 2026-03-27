@@ -6,7 +6,7 @@ Pipeline:
 1) Parse userscript metadata header from src/userscript.header.js.
 2) Build JS outputs by concatenating source modules from src/.
 3) Write generated/extension/manifest.json from parsed metadata.
-4) Package signed CRX3 (default) and optional ZIP.
+4) Optional ZIP for Chrome Web Store (CRX packaging disabled in this script).
 """
 
 from __future__ import annotations
@@ -28,7 +28,8 @@ CONTENT_OUT = EXT_DIR / "content.js"
 MANIFEST_OUT = EXT_DIR / "manifest.json"
 DIST_DIR = REPO_ROOT / "dist"
 USERSCRIPT_OUT = DIST_DIR / "taiga-clean-view.userscript.js"
-SIGNING_KEY = REPO_ROOT / "keys" / "dev-signing-key.pem"
+# Used only if you re-enable CRX generation below (see write_crx_artifact).
+# SIGNING_KEY = REPO_ROOT / "keys" / "dev-signing-key.pem"
 
 HEADER_RE = re.compile(
     r"(?P<header>// ==UserScript==\s*\n(?P<body>.*?)\n// ==/UserScript==)\s*\n?",
@@ -213,12 +214,6 @@ def main() -> int:
         action="store_true",
         help="Also write dist/*.zip (Chrome Web Store upload format)",
     )
-    parser.add_argument(
-        "--key",
-        type=Path,
-        default=SIGNING_KEY,
-        help=f"PEM path for RSA private key (default: {SIGNING_KEY})",
-    )
     args = parser.parse_args()
 
     source = read_text(USERSCRIPT_HEADER_SOURCE)
@@ -239,12 +234,16 @@ def main() -> int:
 
     version = str(meta["version"])
     zip_bytes = extension_zip_bytes()
-    crx_path = write_crx_artifact(version, zip_bytes, args.key)
+
+    # CRX generation disabled: sideloading .crx is restricted on many Chromium-based
+    # browsers (e.g. Brave). Use "Load unpacked" on generated/extension/ or --zip for the store.
+    # To re-enable: restore SIGNING_KEY / --key and uncomment:
+    # crx_path = write_crx_artifact(version, zip_bytes, REPO_ROOT / "keys" / "dev-signing-key.pem")
+    # print(f"Wrote {crx_path.relative_to(REPO_ROOT)}")
 
     print(f"Wrote {USERSCRIPT_OUT.relative_to(REPO_ROOT)}")
     print(f"Wrote {CONTENT_OUT.relative_to(REPO_ROOT)}")
     print(f"Wrote {MANIFEST_OUT.relative_to(REPO_ROOT)}")
-    print(f"Wrote {crx_path.relative_to(REPO_ROOT)}")
 
     if args.zip:
         zip_path = write_zip_artifact(version, zip_bytes)

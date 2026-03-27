@@ -33,7 +33,7 @@ Depois de correr o build, a pasta [`generated/extension/`](generated/extension/)
 3. **Carregar sem compactação** e escolhe a pasta `generated/extension/` deste repositório (criada pelo build).
 4. Recarrega o taskboard do Taiga.
 
-### Gerar `userscript`, `content.js` e `.crx` a partir de `src/`
+### Gerar `userscript` e `content.js` a partir de `src/`
 
 A arquitetura usa um núcleo compartilhado em `src/`:
 
@@ -42,32 +42,29 @@ A arquitetura usa um núcleo compartilhado em `src/`:
 - `src/storage.chrome.js` (adapter da extensão)
 - `src/entry.userscript.js` e `src/entry.extension.js` (bootstraps)
 
-O script Python concatena estes módulos, lê o cabeçalho Tampermonkey de `src/userscript.header.js`, gera `generated/extension/content.js`, `generated/extension/manifest.json` e escreve um **CRX3 assinado** (mesmo esquema que [crx3](https://github.com/ahwayakchih/crx3): RSA 4096 + SHA-256 sobre o ZIP interno).
+O script Python concatena estes módulos, lê o cabeçalho Tampermonkey de `src/userscript.header.js` e gera `generated/extension/content.js` e `generated/extension/manifest.json`. **A geração de `.crx` está desativada** no script (sideload local é restrito em muitos navegadores; usa *Carregar sem compactação* em `generated/extension/` ou `--zip` para a loja).
 
-Requisitos: **Python 3** e dependências (recomenda-se um venv no repositório):
+Requisitos: **Python 3** (stdlib chega para o build padrão):
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate   # ou equivalente no Windows
-pip install -r scripts/requirements.txt
 python3 scripts/build_extension.py
 ```
 
 Opcional: **`--zip`** — gera também `dist/*.zip` (formato da **Chrome Web Store**).
 
-Opcional: **`--key /caminho/para.pem`** — chave RSA em PEM (por defeito `keys/dev-signing-key.pem`, criada na primeira corrida se não existir; ignorada pelo git).
+Para voltar a **empacotar CRX3** localmente, descomenta o bloco em `scripts/build_extension.py` (função `write_crx_artifact`) e instala `pip install -r scripts/requirements.txt` (`cryptography` + `scripts/crx3_pack.py`).
 
 Saída:
 
 - `dist/taiga-clean-view.userscript.js` — **gerado** (usa header de `src/userscript.header.js`)
 - `generated/extension/content.js` — **gerado** (não editar à mão; pasta ignorada pelo git)
 - `generated/extension/manifest.json` — **gerado**
-- `dist/taiga-clean-view-extension-<versão>.crx` — pacote binário válido (cabeçalho `Cr24`, não confundir com ZIP renomeado)
 
 **Nota:** em muitos sistemas o Chrome só instala `.crx` local com **modo de programador** ligado e [limitações por plataforma](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions); para desenvolvimento costuma ser mais simples *Carregar sem compactação* na pasta `generated/extension/`.
 
 ### Erro «CRX header invalid»
 
-Aparece se o ficheiro for um **ZIP mal disfarçado** (primeiros bytes `PK`). O build actual produz CRX real (`Cr24`…). Se vires o erro com um `.crx` do script, verifica que não sobrescreveste o ficheiro e que corriste `pip install -r scripts/requirements.txt`.
+Aparece se o ficheiro for um **ZIP mal disfarçado** (primeiros bytes `PK`). Um CRX válido começa com `Cr24`. Se gerares CRX manualmente ou reativares o passo no build, instala as dependências em `scripts/requirements.txt`.
 
 ## Uso
 
@@ -100,14 +97,14 @@ Para desligar: `localStorage.removeItem('taiga-clean-view-debug'); location.relo
 | `src/entry.userscript.js` | Bootstrap do userscript |
 | `src/entry.extension.js` | Bootstrap do content script |
 | `src/userscript.header.js` | Header metadata do userscript (fonte para o build) |
-| `scripts/build_extension.py` | Gera userscript, content script, manifest e `dist/*.crx` (opcional `--zip`) |
-| `scripts/crx3_pack.py` | Empacota bytes ZIP → CRX3 |
-| `scripts/requirements.txt` | `cryptography` para assinar o CRX |
-| `keys/dev-signing-key.pem` | Chave local para assinar o CRX (criada pelo build; não versionar) |
+| `scripts/build_extension.py` | Gera userscript, content script e manifest (opcional `--zip`; CRX desativado no script) |
+| `scripts/crx3_pack.py` | Empacota bytes ZIP → CRX3 (só se reativares CRX no build) |
+| `scripts/requirements.txt` | `cryptography` para assinar CRX (só se usares `crx3_pack`) |
+| `keys/dev-signing-key.pem` | Chave PEM local para CRX (opcional; não versionar) |
 | `generated/extension/manifest.json` | Manifest V3 (gerado pelo build; não versionar) |
 | `generated/extension/content.js` | Content script (gerado pelo build; não versionar) |
 | `dist/taiga-clean-view.userscript.js` | Userscript final gerado para Tampermonkey |
-| `dist/*.crx` | Extensão assinada CRX3 (após correr o build com `cryptography`) |
+| `dist/*.zip` | Opcional: pacote para a Chrome Web Store (`python3 scripts/build_extension.py --zip`) |
 
 ## Licença
 
