@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Taiga Taskboard – Clean view",
+  "version": "1.0.4",
+  "description": "Toggle compact taskboard: hide large summary, zero header padding and key margins.",
+  "author": "Anderson Souza",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://tree.taiga.io/project/*/taskboard",
+        "https://tree.taiga.io/project/*/taskboard/*",
+        "https://*.taiga.io/project/*/taskboard",
+        "https://*.taiga.io/project/*/taskboard/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "permissions": ["storage"]
+}

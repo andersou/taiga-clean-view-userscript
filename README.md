@@ -23,16 +23,26 @@ A documentação oficial de metadados (`@match`, `@grant`, `@run-at`, etc.) est�
 
 Para atualizar depois de editar o ficheiro local: abra o mesmo script no dashboard, substitua o código e salve; a [documentação](https://www.tampermonkey.net/documentation.php) explica que `@version` entra no fluxo de verificação de atualização quando usas fontes remotas.
 
+## Instalação (extensão Chrome — Manifest V3)
+
+Na pasta [`extension/`](extension/) está uma extensão com o mesmo comportamento, usando [content scripts](https://developer.chrome.com/docs/extensions/mv3/content_scripts/) e `chrome.storage.local` para o estado.
+
+1. Abre `chrome://extensions`.
+2. Ativa **Modo do programador**.
+3. **Carregar sem compactação** e escolhe a pasta `extension/` deste repositório.
+4. Recarrega o taskboard do Taiga.
+
 ## Uso
 
 - No cabeçalho do taskboard aparece um botão com ícone ao lado do título (`h1`):
   - **🧹** — ativa a vista limpa  
   - **↺** — restaura o visual normal  
-- O estado é guardado em `localStorage` (chave `taiga-clean-view`).
+- **Userscript:** estado em `localStorage` do site (chave `taiga-clean-view`).
+- **Extensão:** estado em `chrome.storage.local` (mesma chave; sincroniza entre abas).
 
 ### Debug opcional
 
-No console da página do Taiga:
+**Userscript** — no console da página do Taiga:
 
 ```js
 localStorage.setItem('taiga-clean-view-debug', '1');
@@ -41,11 +51,15 @@ location.reload();
 
 Para desligar: `localStorage.removeItem('taiga-clean-view-debug'); location.reload();`
 
+**Extensão** — o mesmo significado para a chave `taiga-clean-view-debug`, guardada em `chrome.storage.local`. Em desenvolvimento, o modo mais simples é definir temporariamente `debugEnabled = true` no arranque de `extension/content.js` ou usar *Detalhes da extensão → Armazenamento* no Chrome, quando disponível.
+
 ## Ficheiros
 
 | Ficheiro | Descrição |
 |----------|-----------|
 | `taiga-clean-view.userscript.js` | Userscript pronto para colar no Tampermonkey |
+| `extension/manifest.json` | Manifest V3 da extensão Chrome |
+| `extension/content.js` | Lógica injetada nas páginas do taskboard |
 
 ## Licença
 
