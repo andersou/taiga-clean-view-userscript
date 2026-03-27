@@ -15,9 +15,10 @@ A documentação oficial de metadados (`@match`, `@grant`, `@run-at`, etc.) est�
 2. Abra o **Dashboard** do Tampermonkey (ícone da extensão → *Dashboard*).
 3. Crie um script novo:
    - *Create a new script…* (ou equivalente no seu idioma).
-4. **Apague o modelo** que vier aberto e **cole o conteúdo completo** do arquivo `taiga-clean-view.userscript.js` (incluindo o bloco `// ==UserScript==` … `// ==/UserScript==`).
-5. Salve (**Ctrl/Cmd+S** ou *File → Save*).
-6. Acesse um taskboard do Taiga, por exemplo:  
+4. Rode o build e use o arquivo gerado em `dist/taiga-clean-view.userscript.js`.
+5. **Apague o modelo** que vier aberto e **cole o conteúdo completo** do userscript gerado (incluindo o bloco `// ==UserScript==` … `// ==/UserScript==`).
+6. Salve (**Ctrl/Cmd+S** ou *File → Save*).
+7. Acesse um taskboard do Taiga, por exemplo:  
    `https://tree.taiga.io/project/<seu-projeto>/taskboard/<sprint-slug>`  
    Recarregue a página se já estiver aberta.
 
@@ -32,9 +33,16 @@ Na pasta [`extension/`](extension/) está uma extensão com o mesmo comportament
 3. **Carregar sem compactação** e escolhe a pasta `extension/` deste repositório.
 4. Recarrega o taskboard do Taiga.
 
-### Gerar `content.js` e o `.crx` (CRX3) a partir do userscript
+### Gerar `userscript`, `content.js` e `.crx` a partir de `src/`
 
-A fonte de verdade é `taiga-clean-view.userscript.js`. O script Python converte o corpo para extensão (`chrome.storage`, `async init`, etc.), atualiza o `manifest.json` a partir do cabeçalho Tampermonkey, e escreve um **CRX3 assinado** (mesmo esquema que [crx3](https://github.com/ahwayakchih/crx3): RSA 4096 + SHA-256 sobre o ZIP interno).
+A arquitetura usa um núcleo compartilhado em `src/`:
+
+- `src/core.js` (lógica de UI e comportamento)
+- `src/storage.localstorage.js` (adapter do userscript)
+- `src/storage.chrome.js` (adapter da extensão)
+- `src/entry.userscript.js` e `src/entry.extension.js` (bootstraps)
+
+O script Python concatena estes módulos, mantém o cabeçalho Tampermonkey de `taiga-clean-view.userscript.js`, gera `extension/content.js`, atualiza `extension/manifest.json` e escreve um **CRX3 assinado** (mesmo esquema que [crx3](https://github.com/ahwayakchih/crx3): RSA 4096 + SHA-256 sobre o ZIP interno).
 
 Requisitos: **Python 3** e dependências (recomenda-se um venv no repositório):
 
@@ -50,6 +58,7 @@ Opcional: **`--key /caminho/para.pem`** — chave RSA em PEM (é criada na prime
 
 Saída:
 
+- `dist/taiga-clean-view.userscript.js` — **gerado** (usa header de `src/userscript.header.js`)
 - `extension/content.js` — **gerado** (não editar à mão)
 - `extension/manifest.json` — atualizado
 - `dist/taiga-clean-view-extension-<versão>.crx` — pacote binário válido (cabeçalho `Cr24`, não confundir com ZIP renomeado)
@@ -85,12 +94,18 @@ Para desligar: `localStorage.removeItem('taiga-clean-view-debug'); location.relo
 
 | Ficheiro | Descrição |
 |----------|-----------|
-| `taiga-clean-view.userscript.js` | Userscript pronto para colar no Tampermonkey |
-| `scripts/build_extension.py` | Gera `extension/content.js`, manifest e `dist/*.crx` (opcional `--zip`) |
+| `src/core.js` | Núcleo compartilhado de comportamento |
+| `src/storage.localstorage.js` | Adapter de persistência do userscript |
+| `src/storage.chrome.js` | Adapter de persistência da extensão |
+| `src/entry.userscript.js` | Bootstrap do userscript |
+| `src/entry.extension.js` | Bootstrap do content script |
+| `src/userscript.header.js` | Header metadata do userscript (fonte para o build) |
+| `scripts/build_extension.py` | Gera userscript, content script, manifest e `dist/*.crx` (opcional `--zip`) |
 | `scripts/crx3_pack.py` | Empacota bytes ZIP → CRX3 |
 | `scripts/requirements.txt` | `cryptography` para assinar o CRX |
 | `extension/manifest.json` | Manifest V3 da extensão Chrome (gerado/atualizado pelo script) |
-| `extension/content.js` | Content script (gerado pelo script a partir do userscript) |
+| `extension/content.js` | Content script gerado a partir de `src/` |
+| `dist/taiga-clean-view.userscript.js` | Userscript final gerado para Tampermonkey |
 | `dist/*.crx` | Extensão assinada CRX3 (após correr o build com `cryptography`) |
 
 ## Licença

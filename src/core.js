@@ -1,49 +1,34 @@
-// ==UserScript==
-// @name         Taiga Taskboard – Clean view
-// @namespace    http://tampermonkey.net/
-// @version      1.0.4
-// @description  Toggle compact taskboard: hide large summary, zero header padding and key margins.
-// @author       Anderson Souza
-// @match        https://tree.taiga.io/project/*/taskboard/*
-// @match        https://*.taiga.io/project/*/taskboard/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=taiga.io
-// @grant        none
-// @run-at       document-idle
-// @noframes
-// ==/UserScript==
+function createTaigaCleanViewApp(options) {
+  const storage = options.storage;
+  const environmentName = options.environmentName || 'unknown';
+  const markerAttribute = options.markerAttribute || 'data-taiga-clean-view';
+  const loadedAtProperty = options.loadedAtProperty || '__taigaCleanViewLoadedAt';
 
-(function () {
-  'use strict';
-
-  const STORAGE_KEY = 'taiga-clean-view';
   const ROOT_CLASS = 'taiga-clean-view-active';
   const BUTTON_ATTR = 'data-taiga-clean-view-toggle';
   const STYLE_ID = 'taiga-clean-view-styles';
   const LOG_PREFIX = '[Taiga Clean View]';
-  const DEBUG_KEY = 'taiga-clean-view-debug';
   const ICON_ENABLE_CLEAN = '🧹';
   const ICON_RESTORE_VIEW = '↺';
+
   let missingHeaderLogCount = 0;
+  let debugEnabled = false;
+  let cachedActive = false;
 
-  function isDebugEnabled() {
-    try {
-      return localStorage.getItem(DEBUG_KEY) === '1';
-    } catch (_) {
-      return false;
-    }
+  function log() {
+    if (!debugEnabled) return;
+    const args = Array.from(arguments);
+    console.log.apply(console, [LOG_PREFIX].concat(args));
   }
 
-  function log(...args) {
-    if (!isDebugEnabled()) return;
-    console.log(LOG_PREFIX, ...args);
+  function warn() {
+    const args = Array.from(arguments);
+    console.warn.apply(console, [LOG_PREFIX].concat(args));
   }
 
-  function warn(...args) {
-    console.warn(LOG_PREFIX, ...args);
-  }
-
-  function error(...args) {
-    console.error(LOG_PREFIX, ...args);
+  function error() {
+    const args = Array.from(arguments);
+    console.error.apply(console, [LOG_PREFIX].concat(args));
   }
 
   function injectStyles() {
@@ -53,40 +38,15 @@
     }
     const style = document.createElement('style');
     style.id = STYLE_ID;
-    style.textContent = `
-.${ROOT_CLASS} .taskboard-inner > div.summary.large-summary,
-.${ROOT_CLASS} .taskboard-inner .summary.large-summary,
-.${ROOT_CLASS} .summary.large-summary { display: none !important; }
-.${ROOT_CLASS} .taskboard-header { padding: 0 !important; }
-.${ROOT_CLASS} .graphics-container { margin: 0 !important; }
-.${ROOT_CLASS} .taskboard-actions { margin: 0 !important; }
-`;
+    style.textContent =
+      '.' + ROOT_CLASS + ' .taskboard-inner > div.summary.large-summary,\n' +
+      '.' + ROOT_CLASS + ' .taskboard-inner .summary.large-summary,\n' +
+      '.' + ROOT_CLASS + ' .summary.large-summary { display: none !important; }\n' +
+      '.' + ROOT_CLASS + ' .taskboard-header { padding: 0 !important; }\n' +
+      '.' + ROOT_CLASS + ' .graphics-container { margin: 0 !important; }\n' +
+      '.' + ROOT_CLASS + ' .taskboard-actions { margin: 0 !important; }';
     document.documentElement.appendChild(style);
     log('Styles injected');
-  }
-
-  function loadState() {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === '1';
-    } catch {
-      return false;
-    }
-  }
-
-  function saveState(active) {
-    try {
-      localStorage.setItem(STORAGE_KEY, active ? '1' : '0');
-    } catch (_) { }
-  }
-
-  function applyRootState(active) {
-    document.documentElement.classList.toggle(ROOT_CLASS, active);
-    const btn = document.querySelector(`[${BUTTON_ATTR}]`);
-    if (btn) {
-      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      updateToggleButtonUI(btn, active);
-    }
-    log('Applied root state', { active, hasButton: !!btn });
   }
 
   function updateToggleButtonUI(btn, active) {
@@ -94,9 +54,21 @@
     btn.textContent = isCleanEnabled ? ICON_RESTORE_VIEW : ICON_ENABLE_CLEAN;
     btn.setAttribute(
       'aria-label',
-      isCleanEnabled ? 'Restaurar visual original do taskboard' : 'Ativar visual limpo do taskboard'
+      isCleanEnabled
+        ? 'Restaurar visual original do taskboard'
+        : 'Ativar visual limpo do taskboard'
     );
     btn.title = isCleanEnabled ? 'Restore view' : 'Clean view';
+  }
+
+  function applyRootState(active) {
+    document.documentElement.classList.toggle(ROOT_CLASS, active);
+    const btn = document.querySelector('[' + BUTTON_ATTR + ']');
+    if (btn) {
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      updateToggleButtonUI(btn, active);
+    }
+    log('Applied root state', { active: active, hasButton: !!btn });
   }
 
   function findTitleAnchor(header) {
@@ -122,21 +94,20 @@
       return;
     }
 
-    if (header.querySelector(`[${BUTTON_ATTR}]`)) {
+    if (header.querySelector('[' + BUTTON_ATTR + ']')) {
       log('Toggle button already exists');
       return;
     }
 
-    const active = loadState();
-    applyRootState(active);
+    applyRootState(cachedActive);
 
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.setAttribute(BUTTON_ATTR, '');
-    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.setAttribute('aria-pressed', cachedActive ? 'true' : 'false');
     btn.style.cssText =
       'margin-left:0.45em;padding:0 0.15em;font:inherit;font-size:1.05em;line-height:1;cursor:pointer;vertical-align:middle;background:transparent;border:0;';
-    updateToggleButtonUI(btn, active);
+    updateToggleButtonUI(btn, cachedActive);
 
     const anchor = findTitleAnchor(header);
     if (anchor && (anchor.matches('h1') || anchor.matches('h2'))) {
@@ -155,34 +126,44 @@
       warn('Title anchor not found, appended button to header');
     }
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', function () {
       const next = !document.documentElement.classList.contains(ROOT_CLASS);
-      log('Toggle clicked', { previous: !next, next });
+      log('Toggle clicked', { previous: !next, next: next });
+      cachedActive = next;
       applyRootState(next);
-      saveState(next);
+      void storage.saveState(next);
     });
 
-    log('Toggle button created', { active });
+    log('Toggle button created', { active: cachedActive });
   }
 
   function isTaskboardRoute() {
     return /\/taskboard(\/|$)/.test(location.pathname);
   }
 
-  function init() {
-    document.documentElement.setAttribute('data-taiga-clean-view-script', '1');
-    window.__taigaCleanViewLoadedAt = new Date().toISOString();
-    warn('Userscript init', {
+  function onPrefsChange(change) {
+    if (typeof change.debug === 'boolean') {
+      debugEnabled = change.debug;
+    }
+    if (typeof change.active === 'boolean') {
+      cachedActive = change.active;
+      applyRootState(cachedActive);
+    }
+  }
+
+  async function init() {
+    const prefs = await storage.loadPrefs();
+    cachedActive = !!prefs.active;
+    debugEnabled = !!prefs.debug;
+
+    document.documentElement.setAttribute(markerAttribute, '1');
+    window[loadedAtProperty] = new Date().toISOString();
+
+    warn(environmentName + ' init', {
       href: location.href,
       path: location.pathname,
       readyState: document.readyState,
-      debug: isDebugEnabled(),
-    });
-
-    log('Init started', {
-      href: location.href,
-      readyState: document.readyState,
-      debug: isDebugEnabled(),
+      debug: debugEnabled,
     });
 
     if (!isTaskboardRoute()) {
@@ -191,13 +172,13 @@
 
     try {
       injectStyles();
-      applyRootState(loadState());
+      applyRootState(cachedActive);
     } catch (err) {
       error('Failed during initial setup', err);
     }
 
     let debounceId;
-    const scheduleEnsure = () => {
+    const scheduleEnsure = function () {
       clearTimeout(debounceId);
       debounceId = window.setTimeout(ensureToggleButton, 50);
     };
@@ -212,14 +193,23 @@
       warn('document.body not available during init');
     }
 
+    if (typeof storage.subscribe === 'function') {
+      storage.subscribe(onPrefsChange);
+    }
+
     window.addEventListener('popstate', scheduleEnsure);
     log('popstate listener attached');
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  function start() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        void init();
+      });
+    } else {
+      void init();
+    }
   }
-  warn('Userscript file evaluated');
-})();
+
+  return { start: start };
+}

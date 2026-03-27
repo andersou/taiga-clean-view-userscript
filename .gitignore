@@ -1,3 +1,7 @@
 /dist/
 /extension/dev-signing-key.pem
 .venv/
+scripts/__pycache__/
+*.DS_Store
+extension.pem
+extension.crx
