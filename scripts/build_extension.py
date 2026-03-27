@@ -319,6 +319,12 @@ def main() -> int:
     print(f"Wrote {CONTENT_OUT.relative_to(REPO_ROOT)}")
     print(f"Wrote {MANIFEST.relative_to(REPO_ROOT)}")
     print(f"Wrote {zpath.relative_to(REPO_ROOT)}")
+    print(
+        "\nNote: output is a ZIP (Web Store / archiving). "
+        "Renaming .zip → .crx causes “CRX header invalid”—CRX is a signed binary format. "
+        "Use “Pack extension” in chrome://extensions or “Load unpacked” on extension/.",
+        file=sys.stderr,
+    )
     return 0
 
 

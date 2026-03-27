@@ -48,6 +48,14 @@ Saída:
 - `extension/manifest.json` — atualizado (inclui variantes `.../taskboard` quando o header tem `.../taskboard/*`)
 - `dist/taiga-clean-view-extension-<versão>.zip` — raiz do ZIP com `manifest.json` e `content.js` (pronto para carregar ou para a Chrome Web Store)
 
+### Erro «CRX header invalid»
+
+Isso acontece quando o ficheiro **não é um CRX real**. O build gera **apenas `.zip`** (começa com bytes `PK`, formato ZIP). Se renomeares para `.crx`, o Chrome tenta ler o cabeçalho binário de um CRX e falha.
+
+- **Instalar em desenvolvimento:** `chrome://extensions` → *Carregar sem compactação* → escolhe a pasta `extension/` (não precisas de CRX).
+- **Enviar à loja:** usa o **.zip** gerado em `dist/`.
+- **Obter um `.crx` válido** (instalação antiga / políticas): no mesmo ecrã, *Empacotar extensão* → diretório raiz = `extension/` → o Chrome produz `.crx` **assinado** (e opcionalmente um `.pem` para atualizações).
+
 ## Uso
 
 - No cabeçalho do taskboard aparece um botão com ícone ao lado do título (`h1`):
