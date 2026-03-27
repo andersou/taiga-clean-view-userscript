@@ -32,6 +32,22 @@ Na pasta [`extension/`](extension/) está uma extensão com o mesmo comportament
 3. **Carregar sem compactação** e escolhe a pasta `extension/` deste repositório.
 4. Recarrega o taskboard do Taiga.
 
+### Gerar `content.js` e o pacote `.zip` a partir do userscript
+
+A fonte de verdade é `taiga-clean-view.userscript.js`. O script Python converte o corpo para extensão (`chrome.storage`, `async init`, etc.), atualiza o `manifest.json` com `@name`, `@version`, `@description`, `@author` e `@match`, e cria o ZIP em `dist/`.
+
+Requisito: **Python 3**.
+
+```bash
+python3 scripts/build_extension.py
+```
+
+Saída:
+
+- `extension/content.js` — **gerado** (não editar à mão; o ficheiro começa com um aviso)
+- `extension/manifest.json` — atualizado (inclui variantes `.../taskboard` quando o header tem `.../taskboard/*`)
+- `dist/taiga-clean-view-extension-<versão>.zip` — raiz do ZIP com `manifest.json` e `content.js` (pronto para carregar ou para a Chrome Web Store)
+
 ## Uso
 
 - No cabeçalho do taskboard aparece um botão com ícone ao lado do título (`h1`):
@@ -58,8 +74,10 @@ Para desligar: `localStorage.removeItem('taiga-clean-view-debug'); location.relo
 | Ficheiro | Descrição |
 |----------|-----------|
 | `taiga-clean-view.userscript.js` | Userscript pronto para colar no Tampermonkey |
-| `extension/manifest.json` | Manifest V3 da extensão Chrome |
-| `extension/content.js` | Lógica injetada nas páginas do taskboard |
+| `scripts/build_extension.py` | Gera `extension/content.js`, manifest e ZIP em `dist/` |
+| `extension/manifest.json` | Manifest V3 da extensão Chrome (gerado/atualizado pelo script) |
+| `extension/content.js` | Content script (gerado pelo script a partir do userscript) |
+| `dist/*.zip` | Pacote da extensão (após correr o script de build) |
 
 ## Licença
 
