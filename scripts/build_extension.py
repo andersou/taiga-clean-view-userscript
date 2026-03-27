@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
 Generate extension/content.js from taiga-clean-view.userscript.js, update
-extension/manifest.json from the userscript header, and zip the extension
-for Chrome (files at ZIP root: manifest.json, content.js).
+extension/manifest.json from the userscript header, and write a signed CRX3
+to dist/ (optional --zip for Chrome Web Store).
 """
 
 from __future__ import annotations
 
+import argparse
+import io
 import json
 import re
 import sys
@@ -20,6 +22,7 @@ EXT_DIR = REPO_ROOT / "extension"
 MANIFEST = EXT_DIR / "manifest.json"
 CONTENT_OUT = EXT_DIR / "content.js"
 DIST_DIR = REPO_ROOT / "dist"
+SIGNING_KEY = EXT_DIR / "dev-signing-key.pem"
 
 HEADER_RE = re.compile(
     r"// ==UserScript==\s*\n(.*?)\n// ==/UserScript==\s*\n",
@@ -290,16 +293,57 @@ def write_manifest(meta: dict, matches: list[str]) -> None:
     MANIFEST.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def zip_extension(version: str) -> Path:
-    DIST_DIR.mkdir(parents=True, exist_ok=True)
-    zip_path = DIST_DIR / f"taiga-clean-view-extension-{version}.zip"
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+def extension_zip_bytes() -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.write(MANIFEST, arcname="manifest.json")
         zf.write(CONTENT_OUT, arcname="content.js")
+    return buf.getvalue()
+
+
+def write_zip_artifact(version: str, zip_bytes: bytes) -> Path:
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+    zip_path = DIST_DIR / f"taiga-clean-view-extension-{version}.zip"
+    zip_path.write_bytes(zip_bytes)
     return zip_path
 
 
+def write_crx_artifact(version: str, zip_bytes: bytes, key_path: Path) -> Path:
+    try:
+        from crx3_pack import pack_crx3 as _pack
+    except ImportError as e:
+        raise RuntimeError(
+            "CRX packing needs scripts/crx3_pack.py on PYTHONPATH and "
+            "dependencies from scripts/requirements.txt (pip install cryptography)."
+        ) from e
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+    crx_path = DIST_DIR / f"taiga-clean-view-extension-{version}.crx"
+    try:
+        crx_path.write_bytes(_pack(zip_bytes, key_path))
+    except ImportError as e:
+        raise RuntimeError(
+            "Install cryptography: pip install -r scripts/requirements.txt"
+        ) from e
+    return crx_path
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Generate extension from userscript; output CRX3 (+ optional ZIP for Web Store)."
+    )
+    parser.add_argument(
+        "--zip",
+        action="store_true",
+        help="Also write dist/*.zip (Chrome Web Store upload format)",
+    )
+    parser.add_argument(
+        "--key",
+        type=Path,
+        default=SIGNING_KEY,
+        help=f"PEM path for RSA private key (created if missing); default: {SIGNING_KEY}",
+    )
+    args = parser.parse_args()
+
     if not USERSCRIPT.is_file():
         print(f"Missing userscript: {USERSCRIPT}", file=sys.stderr)
         return 1
@@ -315,16 +359,18 @@ def main() -> int:
     CONTENT_OUT.write_text(content, encoding="utf-8")
     write_manifest(meta, matches)
 
-    zpath = zip_extension(meta["version"])
+    scripts_dir = Path(__file__).resolve().parent
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+
+    zip_bytes = extension_zip_bytes()
+    crx_path = write_crx_artifact(meta["version"], zip_bytes, args.key)
     print(f"Wrote {CONTENT_OUT.relative_to(REPO_ROOT)}")
     print(f"Wrote {MANIFEST.relative_to(REPO_ROOT)}")
-    print(f"Wrote {zpath.relative_to(REPO_ROOT)}")
-    print(
-        "\nNote: output is a ZIP (Web Store / archiving). "
-        "Renaming .zip → .crx causes “CRX header invalid”—CRX is a signed binary format. "
-        "Use “Pack extension” in chrome://extensions or “Load unpacked” on extension/.",
-        file=sys.stderr,
-    )
+    print(f"Wrote {crx_path.relative_to(REPO_ROOT)}")
+    if args.zip:
+        zpath = write_zip_artifact(meta["version"], zip_bytes)
+        print(f"Wrote {zpath.relative_to(REPO_ROOT)}")
     return 0
 
 

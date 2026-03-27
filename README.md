@@ -32,29 +32,33 @@ Na pasta [`extension/`](extension/) está uma extensão com o mesmo comportament
 3. **Carregar sem compactação** e escolhe a pasta `extension/` deste repositório.
 4. Recarrega o taskboard do Taiga.
 
-### Gerar `content.js` e o pacote `.zip` a partir do userscript
+### Gerar `content.js` e o `.crx` (CRX3) a partir do userscript
 
-A fonte de verdade é `taiga-clean-view.userscript.js`. O script Python converte o corpo para extensão (`chrome.storage`, `async init`, etc.), atualiza o `manifest.json` com `@name`, `@version`, `@description`, `@author` e `@match`, e cria o ZIP em `dist/`.
+A fonte de verdade é `taiga-clean-view.userscript.js`. O script Python converte o corpo para extensão (`chrome.storage`, `async init`, etc.), atualiza o `manifest.json` a partir do cabeçalho Tampermonkey, e escreve um **CRX3 assinado** (mesmo esquema que [crx3](https://github.com/ahwayakchih/crx3): RSA 4096 + SHA-256 sobre o ZIP interno).
 
-Requisito: **Python 3**.
+Requisitos: **Python 3** e dependências (recomenda-se um venv no repositório):
 
 ```bash
+python3 -m venv .venv && source .venv/bin/activate   # ou equivalente no Windows
+pip install -r scripts/requirements.txt
 python3 scripts/build_extension.py
 ```
 
+Opcional: **`--zip`** — gera também `dist/*.zip` (formato da **Chrome Web Store**).
+
+Opcional: **`--key /caminho/para.pem`** — chave RSA em PEM (é criada na primeira corrida no caminho por defeito `extension/dev-signing-key.pem`, ignorada pelo git).
+
 Saída:
 
-- `extension/content.js` — **gerado** (não editar à mão; o ficheiro começa com um aviso)
-- `extension/manifest.json` — atualizado (inclui variantes `.../taskboard` quando o header tem `.../taskboard/*`)
-- `dist/taiga-clean-view-extension-<versão>.zip` — raiz do ZIP com `manifest.json` e `content.js` (pronto para carregar ou para a Chrome Web Store)
+- `extension/content.js` — **gerado** (não editar à mão)
+- `extension/manifest.json` — atualizado
+- `dist/taiga-clean-view-extension-<versão>.crx` — pacote binário válido (cabeçalho `Cr24`, não confundir com ZIP renomeado)
+
+**Nota:** em muitos sistemas o Chrome só instala `.crx` local com **modo de programador** ligado e [limitações por plataforma](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions); para desenvolvimento costuma ser mais simples *Carregar sem compactação* na pasta `extension/`.
 
 ### Erro «CRX header invalid»
 
-Isso acontece quando o ficheiro **não é um CRX real**. O build gera **apenas `.zip`** (começa com bytes `PK`, formato ZIP). Se renomeares para `.crx`, o Chrome tenta ler o cabeçalho binário de um CRX e falha.
-
-- **Instalar em desenvolvimento:** `chrome://extensions` → *Carregar sem compactação* → escolhe a pasta `extension/` (não precisas de CRX).
-- **Enviar à loja:** usa o **.zip** gerado em `dist/`.
-- **Obter um `.crx` válido** (instalação antiga / políticas): no mesmo ecrã, *Empacotar extensão* → diretório raiz = `extension/` → o Chrome produz `.crx` **assinado** (e opcionalmente um `.pem` para atualizações).
+Aparece se o ficheiro for um **ZIP mal disfarçado** (primeiros bytes `PK`). O build actual produz CRX real (`Cr24`…). Se vires o erro com um `.crx` do script, verifica que não sobrescreveste o ficheiro e que corriste `pip install -r scripts/requirements.txt`.
 
 ## Uso
 
@@ -82,10 +86,12 @@ Para desligar: `localStorage.removeItem('taiga-clean-view-debug'); location.relo
 | Ficheiro | Descrição |
 |----------|-----------|
 | `taiga-clean-view.userscript.js` | Userscript pronto para colar no Tampermonkey |
-| `scripts/build_extension.py` | Gera `extension/content.js`, manifest e ZIP em `dist/` |
+| `scripts/build_extension.py` | Gera `extension/content.js`, manifest e `dist/*.crx` (opcional `--zip`) |
+| `scripts/crx3_pack.py` | Empacota bytes ZIP → CRX3 |
+| `scripts/requirements.txt` | `cryptography` para assinar o CRX |
 | `extension/manifest.json` | Manifest V3 da extensão Chrome (gerado/atualizado pelo script) |
 | `extension/content.js` | Content script (gerado pelo script a partir do userscript) |
-| `dist/*.zip` | Pacote da extensão (após correr o script de build) |
+| `dist/*.crx` | Extensão assinada CRX3 (após correr o build com `cryptography`) |
 
 ## Licença
 

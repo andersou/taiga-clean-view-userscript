@@ -1,1 +1,3 @@
 /dist/
+/extension/dev-signing-key.pem
+.venv/
